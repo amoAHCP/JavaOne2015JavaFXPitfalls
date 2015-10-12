@@ -29,15 +29,25 @@ import java.util.concurrent.atomic.AtomicLong;
 public class VLCDemo
         extends Application {
 
+    public static final String MOVIE_FILE = "JavaOne2015JavaFXPitfalls/JavaFXPitfalls/src/main/resources/H264_AAC_(720p)(mkvmerge).mkv";
+    public static final int WIDTH = 1920;
+    public static final int HIGHT = 1080;
+
     public static void main(final String[] args) {
         Application.launch(args);
     }
 
     private DirectMediaPlayerComponent mp;
+    final WritablePixelFormat<ByteBuffer> byteBgraInstance = PixelFormat.getByteBgraPreInstance();
+    //final WritablePixelFormat<ByteBuffer> byteBgraInstance = PixelFormat.getByteBgraInstance();  // negative test
+
+    static {
+        NativeLibrary.addSearchPath("vlc", "/Applications/VLC.app/Contents/MacOS/lib/");
+    }
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        NativeLibrary.addSearchPath("vlc", "/Applications/VLC.app/Contents/MacOS/lib/");
+
 
         StackPane stack = new StackPane();
         final Canvas canvas = new Canvas(1920, 1080);
@@ -47,18 +57,14 @@ public class VLCDemo
         label.setStyle("-fx-font: 36px \"Segoe UI Semibold\";-fx-text-fill: white;");
         StackPane.setMargin(label, new Insets(0, 10, 0, 0));
         stack.getChildren().addAll(canvas, vBox);
-        PixelFormat format = canvas.getGraphicsContext2D().getPixelWriter().getPixelFormat();
-        PixelFormat.Type type = format.getType();
-        System.out.println(">>> " + canvas.getGraphicsContext2D().getPixelWriter().getPixelFormat());
         Scene scene = new Scene(stack);
         final PixelWriter pixelWriter = canvas.getGraphicsContext2D().getPixelWriter();
-        final WritablePixelFormat<ByteBuffer> byteBgraInstance = PixelFormat.getByteBgraPreInstance();//PixelFormat.getByteBgraInstance();
+
 
         mp = new DirectMediaPlayerComponent(formatCallback) {
 
             private AtomicLong totalTime = new AtomicLong(0);
             private long totalFrames;
-            private long tooLateFrames;
 
             @Override
             public void display(DirectMediaPlayer mediaPlayer,
@@ -69,17 +75,17 @@ public class VLCDemo
                 totalFrames++;
                 Platform.runLater(() -> {
                             long startTime = System.currentTimeMillis();
-                            pixelWriter.setPixels(0, 0, 1920, 1080, byteBgraInstance, byteBuffer, 1920 * 4);
+                            pixelWriter.setPixels(0, 0, WIDTH, HIGHT, byteBgraInstance, byteBuffer, WIDTH * 4);
                             long renderTime = System.currentTimeMillis() - startTime;
                             totalTime.set(totalTime.longValue()+renderTime);
-                            String s = String.format("Frames: %4d   Avg.time: %4.1f ms   Frames>20ms: %d   (Max)FPS: %3.0f fps\n", totalFrames, (double) totalTime.longValue() / totalFrames, tooLateFrames, 1000.0 / ((double) totalTime.longValue() / totalFrames));
+                            String s = String.format("Frames: %4d   Avg.time: %4.1f ms    (Max)FPS: %3.0f fps\n", totalFrames, (double) totalTime.longValue() / totalFrames,  1000.0 / ((double) totalTime.longValue() / totalFrames));
                             label.setText(s);
                         }
                 );
             }
         };
 
-        mp.getMediaPlayer().playMedia("/Users/amo/Downloads/H264_AAC_(720p)(mkvmerge).mkv");
+        mp.getMediaPlayer().playMedia(MOVIE_FILE);
 
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -89,14 +95,11 @@ public class VLCDemo
     /**
      * Callback to get the buffer format to use for video playback.
      */
-    private final BufferFormatCallback formatCallback = new BufferFormatCallback() {
-        @Override
-        public BufferFormat getBufferFormat(int sourceWidth, int sourceHeight) {
+    private final BufferFormatCallback formatCallback = (sourceWidth, sourceHeight) -> {
 
-            int width = 1920;
-            int height = 1080;
+        int width = WIDTH;
+        int height = HIGHT;
 
-            return new RV32BufferFormat(width, height);
-        }
+        return new RV32BufferFormat(width, height);
     };
 }
